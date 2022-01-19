@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+</head>
+
+<body>
+    <form onsubmit="return connect(event)">
+        <input placeholder="Websocket URL" type="text" />
+        <input type="submit" value="Submit" />
+
+    </form>
+</body>
+<!-- 
+    Buffer object is not present by default in browser,  but in node.js 
+    So it needs to be imported separately
+-->
+<script src="Buffer.js"></script>
+
+<!-- These are transpiled ts files from ws-scrcpy -->
+<!-- These are imported only for convenenience. Otherwise we would have to recreate this ourselves -->
+<script src="Rect.js"></script>
+<script src="Size.js"></script>
+<script src="Util.js"></script>
+<script src="VideoSettings.js"></script>
+<script>
+    function createSetVideoSettingsCommand() {
+        // this is the default settings for the mse player
+        const videoSettings = new VideoSettings({
+            lockedVideoOrientation: -1,
+            bitrate: 7340032,
+            maxFps: 60,
+            iFrameInterval: 10,
+            bounds: new Size(720, 720),
+            sendFrameMeta: false,
+        });
+        const temp = videoSettings.toBuffer();
+        // const event = new CommandControlMessage(ControlMessage.TYPE_CHANGE_STREAM_PARAMETERS);
+        const event = { type: 101 };
+        const offset = 1;
+        console.log('event', event);
+        console.log('offset', offset);
+        const buffers = new buffer.Buffer(offset + temp.length);
+        buffers.writeUInt8(event.type, 0);
+        temp.forEach((byte, index) => {
+            buffers.writeUInt8(byte, index + offset);
+        });
+        event.buffer = buffers;
+        return event;
+    }
+    function stringToUint(string) {
+        var string = btoa(unescape(encodeURIComponent(string))),
+            charList = string.split(''),
+            uintArray = [];
+        for (var i = 0; i < charList.length; i++) {
+            uintArray.push(charList[i].charCodeAt(0));
+        }
+        return new Uint8Array(uintArray);
+    }
+    function connect(e) {
+        if (e.target.elements[0].value) {
+            let websocket = new WebSocket(e.target.elements[0].value)
+            websocket.binaryType = 'arraybuffer';
+
+            websocket.onmessage = function (msg) {
+                console.log('msg', msg);
+                // if (Array.isArray(msg.data)) {
+                //     event.data.forEach((data) => this.send(data));
+                // } else {
+                //     this.send(msg.data);
+                // }
+                
+            }
+            websocket.onerror = function (error) {
+                console.error('error', error);
+            }
+            websocket.onclose = function (msg) {
+                console.log('onclose', msg);
+            }
+            websocket.onopen = function (msg) {
+                console.log('onopen', msg);
+                // this initiates the screen data to be received
+                const message =  createSetVideoSettingsCommand();
+                this.send(message.buffer);
+            }
+        }
+        // e.preventDefault();
+        return false;
+    }
+</script>
+
+</html>
